@@ -68,3 +68,11 @@ npm run dev
 - 后端API：http://localhost:8080
 - Swagger文档：http://localhost:8080/swagger-ui.html
 - 默认管理员账号：admin / admin123
+
+### 6. 效果图
+![alt text](Snipaste_2026-03-29_10-08-25.png)
+![alt text](Snipaste_2026-03-29_10-09-04.png)
+![alt text](Snipaste_2026-03-29_10-09-46.png)
+![alt text](Snipaste_2026-03-29_10-10-17.png)
+![alt text](Snipaste_2026-03-29_10-10-58.png)
+![alt text](Snipaste_2026-03-29_10-11-19.png)
