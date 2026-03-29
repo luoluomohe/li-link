@@ -27,12 +27,14 @@ CREATE TABLE IF NOT EXISTS t_short_link (
     domain VARCHAR(100) DEFAULT 'localhost' COMMENT '域名',
     status INT DEFAULT 1 COMMENT '1:启用 0:禁用',
     click_count INT DEFAULT 0 COMMENT '点击次数',
+    deleted INT DEFAULT 0 COMMENT '是否删除 0:否 1:是',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     expire_time DATETIME COMMENT '过期时间',
     INDEX idx_short_code (short_code),
     INDEX idx_user_id (user_id),
     INDEX idx_status (status),
+    INDEX idx_deleted (deleted),
     INDEX idx_create_time (create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='短链接表';
 
@@ -77,5 +79,9 @@ INSERT INTO t_system_config (config_key, config_value, description)
 VALUES
     ('short_link_length', '6', '短链长度'),
     ('allow_custom_suffix', 'true', '是否允许自定义后缀'),
-    ('short_domain', 'http://localhost:8080', '短链域名')
+    ('short_domain', 'http://localhost:8080', '短链域名'),
+    ('default_expire_days', '30', '默认过期天数'),
+    ('limit_enabled', 'false', '是否开启创建限制'),
+    ('limit_count', '10', '限制数量'),
+    ('limit_period', 'day', '限制周期 day/month/year')
 ON DUPLICATE KEY UPDATE config_key = config_key;

@@ -76,34 +76,14 @@ public class AdminController {
 
     @GetMapping("/user/info")
     public Result<Map<String, Object>> getUserInfo(@RequestHeader("Authorization") String token) {
-        if (token != null && token.startsWith("Bearer ")) {
-            token = token.substring(7);
-        }
-
-        Long userId = null;
-
-        String tokenKey = "user:token:" + token;
-        try {
-            Object id = redisTemplate.opsForValue().get(tokenKey);
-            if (id != null) {
-                userId = Long.parseLong(id.toString());
-            }
-        } catch (Exception e) {
-            System.out.println("Redis get failed, using database fallback: " + e.getMessage());
-        }
-
-        User user = null;
-        if (userId == null) {
-            user = userService.getUserByUsernameFromSession(token);
-            if (user != null) {
-                userId = user.getId();
-            }
-        } else {
-            user = userService.getUserById(userId);
-        }
-
+        Long userId = extractUserIdFromToken(token);
         if (userId == null) {
             return Result.error(401, "Invalid token");
+        }
+
+        User user = userService.getUserById(userId);
+        if (user == null) {
+            return Result.error(401, "User not found");
         }
 
         Map<String, Object> result = new HashMap<>();
@@ -127,5 +107,105 @@ public class AdminController {
         }
         user.setPassword("[HIDDEN]");
         return Result.success(user);
+    }
+
+    @PostMapping("/change-password")
+    public Result<Void> changePassword(@RequestHeader("Authorization") String token,
+                                        @RequestBody Map<String, String> request) {
+        Long userId = extractUserIdFromToken(token);
+        if (userId == null) {
+            return Result.error(401, "Invalid token");
+        }
+
+        String oldPassword = request.get("oldPassword");
+        String newPassword = request.get("newPassword");
+
+        if (oldPassword == null || oldPassword.isEmpty()) {
+            return Result.error(400, "原密码不能为空");
+        }
+        if (newPassword == null || newPassword.isEmpty()) {
+            return Result.error(400, "新密码不能为空");
+        }
+        if (newPassword.length() < 6) {
+            return Result.error(400, "新密码长度至少6位");
+        }
+
+        boolean success = userService.changePassword(userId, oldPassword, newPassword);
+        if (!success) {
+            return Result.error(400, "原密码错误");
+        }
+
+        return Result.success();
+    }
+
+    @PostMapping("/change-username")
+    public Result<Void> changeUsername(@RequestHeader("Authorization") String token,
+                                        @RequestBody Map<String, String> request) {
+        Long userId = extractUserIdFromToken(token);
+        if (userId == null) {
+            return Result.error(401, "Invalid token");
+        }
+
+        String newUsername = request.get("newUsername");
+
+        if (newUsername == null || newUsername.isEmpty()) {
+            return Result.error(400, "用户名不能为空");
+        }
+        if (newUsername.length() < 3 || newUsername.length() > 20) {
+            return Result.error(400, "用户名长度需在3-20位之间");
+        }
+
+        boolean success = userService.changeUsername(userId, newUsername);
+        if (!success) {
+            return Result.error(400, "用户名已存在");
+        }
+
+        return Result.success();
+    }
+
+    @PostMapping("/user/{id}/reset-password")
+    public Result<Void> resetUserPassword(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        String newPassword = request.get("newPassword");
+
+        if (newPassword == null || newPassword.isEmpty()) {
+            return Result.error(400, "新密码不能为空");
+        }
+        if (newPassword.length() < 6) {
+            return Result.error(400, "密码长度至少6位");
+        }
+
+        boolean success = userService.resetPassword(id, newPassword);
+        if (!success) {
+            return Result.error(404, "用户不存在");
+        }
+
+        return Result.success();
+    }
+
+    private Long extractUserIdFromToken(String token) {
+        if (token == null) {
+            return null;
+        }
+        
+        if (token.startsWith("Bearer ")) {
+            token = token.substring(7);
+        }
+
+        String tokenKey = "user:token:" + token;
+        try {
+            Object id = redisTemplate.opsForValue().get(tokenKey);
+            if (id != null) {
+                return Long.parseLong(id.toString());
+            }
+        } catch (Exception e) {
+            // Redis failed, try database fallback
+        }
+
+        User user = userService.getUserByUsernameFromSession(token);
+        if (user != null) {
+            return user.getId();
+        }
+
+        return null;
     }
 }

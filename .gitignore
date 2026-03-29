@@ -21,6 +21,7 @@ mvnw
 mvnw.cmd
 .gradle/
 build/
+.trae/
 
 # 操作系统生成文件
 .DS_Store
@@ -48,3 +49,4 @@ yarn-error.log*
 *.tmp
 *.swp
 *~
+skills-lock.json

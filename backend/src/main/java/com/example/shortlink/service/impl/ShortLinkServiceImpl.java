@@ -16,10 +16,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.DigestUtils;
-
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -51,6 +47,15 @@ public class ShortLinkServiceImpl implements ShortLinkService {
     @Override
     @Transactional
     public ShortLinkResponse createShortLink(CreateShortLinkRequest request) {
+        if (systemConfigService.isLimitEnabled() && request.getUserId() != null) {
+            String period = systemConfigService.getLimitPeriod();
+            int limitCount = systemConfigService.getLimitCount();
+            long currentCount = getUserLinkCountInPeriod(request.getUserId(), period);
+            if (currentCount >= limitCount) {
+                throw new RuntimeException("您已达到创建限制，" + getPeriodMessage(period) + "最多创建" + limitCount + "个短链");
+            }
+        }
+
         String shortCode;
         boolean allowCustom = systemConfigService.isAllowCustomSuffix();
 
@@ -71,7 +76,13 @@ public class ShortLinkServiceImpl implements ShortLinkService {
         shortLink.setStatus(1);
         shortLink.setClickCount(0);
         shortLink.setCreateTime(LocalDateTime.now());
-        shortLink.setExpireTime(LocalDateTime.now().plusYears(1));
+        shortLink.setDeleted(0);
+
+        int expireDays = systemConfigService.getDefaultExpireDays();
+        if (request.getExpireDays() != null && request.getExpireDays() > 0) {
+            expireDays = Math.min(request.getExpireDays(), 3650);
+        }
+        shortLink.setExpireTime(LocalDateTime.now().plusDays(expireDays));
 
         shortLinkMapper.insert(shortLink);
 
@@ -82,7 +93,6 @@ public class ShortLinkServiceImpl implements ShortLinkService {
         try {
             redisTemplate.opsForValue().set(linkRedisKey, objectMapper.writeValueAsString(shortLink), 24, TimeUnit.HOURS);
         } catch (Exception e) {
-            // Redis缓存失败不影响主流程，记录日志即可
             e.printStackTrace();
         }
 
@@ -100,9 +110,13 @@ public class ShortLinkServiceImpl implements ShortLinkService {
 
         LambdaQueryWrapper<ShortLink> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ShortLink::getShortCode, shortCode);
+        wrapper.eq(ShortLink::getDeleted, 0);
         ShortLink shortLink = shortLinkMapper.selectOne(wrapper);
 
         if (shortLink != null && shortLink.getStatus() == 1) {
+            if (shortLink.getExpireTime() != null && shortLink.getExpireTime().isBefore(LocalDateTime.now())) {
+                return null;
+            }
             redisTemplate.opsForValue().set(redisKey, shortLink.getOriginalUrl(), 24, TimeUnit.HOURS);
             return shortLink.getOriginalUrl();
         }
@@ -114,6 +128,7 @@ public class ShortLinkServiceImpl implements ShortLinkService {
     public List<ShortLinkResponse> getUserLinks(Long userId) {
         LambdaQueryWrapper<ShortLink> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ShortLink::getUserId, userId);
+        wrapper.eq(ShortLink::getDeleted, 0);
         wrapper.orderByDesc(ShortLink::getCreateTime);
         List<ShortLink> links = shortLinkMapper.selectList(wrapper);
         return links.stream().map(this::convertToResponse).collect(Collectors.toList());
@@ -144,12 +159,25 @@ public class ShortLinkServiceImpl implements ShortLinkService {
     public void deleteLink(Long linkId) {
         ShortLink shortLink = shortLinkMapper.selectById(linkId);
         if (shortLink != null) {
-            shortLinkMapper.deleteById(linkId);
+            shortLink.setDeleted(1);
+            shortLink.setUpdateTime(LocalDateTime.now());
+            shortLinkMapper.updateById(shortLink);
 
             String linkRedisKey = SHORT_LINK_KEY_PREFIX + linkId;
             String codeRedisKey = SHORT_CODE_KEY_PREFIX + shortLink.getShortCode();
             redisTemplate.delete(linkRedisKey);
             redisTemplate.delete(codeRedisKey);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void restoreLink(Long linkId) {
+        ShortLink shortLink = shortLinkMapper.selectById(linkId);
+        if (shortLink != null) {
+            shortLink.setDeleted(0);
+            shortLink.setUpdateTime(LocalDateTime.now());
+            shortLinkMapper.updateById(shortLink);
         }
     }
 
@@ -227,6 +255,8 @@ public class ShortLinkServiceImpl implements ShortLinkService {
     public List<ShortLinkResponse> getAllLinks(Long userId, String domain, Integer status, int page, int size) {
         LambdaQueryWrapper<ShortLink> wrapper = new LambdaQueryWrapper<>();
 
+        wrapper.eq(ShortLink::getDeleted, 0);
+
         if (userId != null) {
             wrapper.eq(ShortLink::getUserId, userId);
         }
@@ -246,7 +276,9 @@ public class ShortLinkServiceImpl implements ShortLinkService {
 
     @Override
     public Long getTotalLinks() {
-        return shortLinkMapper.selectCount(null);
+        LambdaQueryWrapper<ShortLink> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(ShortLink::getDeleted, 0);
+        return shortLinkMapper.selectCount(wrapper);
     }
 
     @Override
@@ -324,6 +356,46 @@ public class ShortLinkServiceImpl implements ShortLinkService {
         response.setClickCount(shortLink.getClickCount());
         response.setCreateTime(shortLink.getCreateTime() != null ? shortLink.getCreateTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : null);
         response.setExpireTime(shortLink.getExpireTime() != null ? shortLink.getExpireTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : null);
+        response.setDeleted(shortLink.getDeleted());
         return response;
+    }
+
+    @Override
+    public Long getUserLinkCountInPeriod(Long userId, String period) {
+        LocalDateTime startTime;
+        LocalDateTime now = LocalDateTime.now();
+
+        switch (period.toLowerCase()) {
+            case "day":
+                startTime = now.withHour(0).withMinute(0).withSecond(0).withNano(0);
+                break;
+            case "month":
+                startTime = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+                break;
+            case "year":
+                startTime = now.withDayOfYear(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+                break;
+            default:
+                startTime = now.withHour(0).withMinute(0).withSecond(0).withNano(0);
+        }
+
+        LambdaQueryWrapper<ShortLink> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(ShortLink::getUserId, userId);
+        wrapper.eq(ShortLink::getDeleted, 0);
+        wrapper.ge(ShortLink::getCreateTime, startTime);
+        return shortLinkMapper.selectCount(wrapper);
+    }
+
+    private String getPeriodMessage(String period) {
+        switch (period.toLowerCase()) {
+            case "day":
+                return "每天";
+            case "month":
+                return "每月";
+            case "year":
+                return "每年";
+            default:
+                return "每天";
+        }
     }
 }

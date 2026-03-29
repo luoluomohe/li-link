@@ -20,4 +20,5 @@ public class ShortLink {
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
     private LocalDateTime expireTime;
+    private Integer deleted;
 }

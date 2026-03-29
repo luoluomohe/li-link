@@ -93,4 +93,42 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         String allowed = getConfig("allow_custom_suffix", "true");
         return "true".equalsIgnoreCase(allowed);
     }
+
+    @Override
+    public Integer getDefaultExpireDays() {
+        String days = getConfig("default_expire_days", "30");
+        int value = Integer.parseInt(days);
+        if (value < 1) value = 1;
+        if (value > 3650) value = 3650;
+        return value;
+    }
+
+    @Override
+    public boolean isLimitEnabled() {
+        String enabled = getConfig("limit_enabled", "false");
+        return "true".equalsIgnoreCase(enabled);
+    }
+
+    @Override
+    public Integer getLimitCount() {
+        String count = getConfig("limit_count", "10");
+        int value = Integer.parseInt(count);
+        if (value < 1) value = 1;
+        return value;
+    }
+
+    @Override
+    public String getLimitPeriod() {
+        return getConfig("limit_period", "day");
+    }
+
+    @Override
+    public String getThemePrimaryColor() {
+        return getConfig("theme_primary_color", "#6366f1");
+    }
+
+    @Override
+    public String getThemeStyle() {
+        return getConfig("theme_style", "default");
+    }
 }

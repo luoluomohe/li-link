@@ -14,4 +14,16 @@ public interface SystemConfigService {
     Integer getShortLinkLength();
 
     boolean isAllowCustomSuffix();
+
+    Integer getDefaultExpireDays();
+
+    boolean isLimitEnabled();
+
+    Integer getLimitCount();
+
+    String getLimitPeriod();
+
+    String getThemePrimaryColor();
+
+    String getThemeStyle();
 }

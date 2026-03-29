@@ -13,4 +13,5 @@ public class ShortLinkResponse {
     private Integer clickCount;
     private String createTime;
     private String expireTime;
+    private Integer deleted;
 }

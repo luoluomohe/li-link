@@ -24,4 +24,10 @@ public interface UserService {
     User getUserByUsernameFromSession(String sessionToken);
 
     boolean validateToken(String token);
+
+    boolean changePassword(Long userId, String oldPassword, String newPassword);
+
+    boolean changeUsername(Long userId, String newUsername);
+
+    boolean resetPassword(Long userId, String newPassword);
 }

@@ -44,3 +44,11 @@ export function getUserInfo() {
     method: 'get'
   })
 }
+
+export function resetUserPassword(id, data) {
+  return request({
+    url: `/admin/user/${id}/reset-password`,
+    method: 'post',
+    data
+  })
+}

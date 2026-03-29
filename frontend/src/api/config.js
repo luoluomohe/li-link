@@ -28,3 +28,24 @@ export function isAllowCustomSuffix() {
     method: 'get'
   })
 }
+
+export function getDefaultExpireDays() {
+  return request({
+    url: '/admin/config/default-expire-days',
+    method: 'get'
+  })
+}
+
+export function getLimitConfig() {
+  return request({
+    url: '/admin/config/limit-config',
+    method: 'get'
+  })
+}
+
+export function getThemeConfig() {
+  return request({
+    url: '/admin/config/theme',
+    method: 'get'
+  })
+}

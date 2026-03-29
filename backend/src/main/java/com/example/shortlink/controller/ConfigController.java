@@ -9,28 +9,17 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/admin/config")
-public class AdminConfigController {
+@RequestMapping("/api/config")
+public class ConfigController {
 
     @Autowired
     private SystemConfigService systemConfigService;
 
-    @GetMapping
-    public Result<Map<String, String>> getAllConfigs() {
-        Map<String, String> configs = systemConfigService.getAllConfigs();
-        return Result.success(configs);
-    }
-
-    @PutMapping
-    public Result<Void> updateConfig(@RequestParam String key, @RequestParam String value) {
-        systemConfigService.setConfig(key, value);
-        return Result.success();
-    }
-
-    @GetMapping("/short-link-length")
-    public Result<Map<String, Integer>> getShortLinkLength() {
-        Map<String, Integer> result = new HashMap<>();
-        result.put("shortLinkLength", systemConfigService.getShortLinkLength());
+    @GetMapping("/theme")
+    public Result<Map<String, String>> getThemeConfig() {
+        Map<String, String> result = new HashMap<>();
+        result.put("primaryColor", systemConfigService.getThemePrimaryColor());
+        result.put("themeStyle", systemConfigService.getThemeStyle());
         return Result.success(result);
     }
 
@@ -54,14 +43,6 @@ public class AdminConfigController {
         result.put("limitEnabled", systemConfigService.isLimitEnabled());
         result.put("limitCount", systemConfigService.getLimitCount());
         result.put("limitPeriod", systemConfigService.getLimitPeriod());
-        return Result.success(result);
-    }
-
-    @GetMapping("/theme")
-    public Result<Map<String, String>> getThemeConfig() {
-        Map<String, String> result = new HashMap<>();
-        result.put("primaryColor", systemConfigService.getThemePrimaryColor());
-        result.put("themeStyle", systemConfigService.getThemeStyle());
         return Result.success(result);
     }
 }

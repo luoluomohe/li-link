@@ -19,6 +19,8 @@ public interface ShortLinkService {
 
     void deleteLink(Long linkId);
 
+    void restoreLink(Long linkId);
+
     LinkStatsDTO getLinkStats(Long linkId, String period);
 
     void recordAccess(String shortCode, String ip, String device, String browser, String os, String referer);
@@ -30,4 +32,6 @@ public interface ShortLinkService {
     Long getTotalClicks();
 
     Long getTodayClicks();
+
+    Long getUserLinkCountInPeriod(Long userId, String period);
 }

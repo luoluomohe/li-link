@@ -7,4 +7,5 @@ public class CreateShortLinkRequest {
     private String url;
     private String customSuffix;
     private Long userId;
+    private Integer expireDays;
 }

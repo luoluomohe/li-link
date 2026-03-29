@@ -37,6 +37,13 @@ export function deleteLink(id) {
   })
 }
 
+export function restoreLink(id) {
+  return request({
+    url: `/shortlink/${id}/restore`,
+    method: 'put'
+  })
+}
+
 export function getLinkStats(id, period) {
   return request({
     url: `/shortlink/${id}/stats`,

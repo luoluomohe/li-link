@@ -150,4 +150,58 @@ public class UserServiceImpl implements UserService {
             return getUserByUsernameFromSession(token) != null;
         }
     }
+
+    @Override
+    public boolean changePassword(Long userId, String oldPassword, String newPassword) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            return false;
+        }
+
+        String oldPasswordMd5 = DigestUtils.md5DigestAsHex(oldPassword.getBytes(StandardCharsets.UTF_8));
+        if (!oldPasswordMd5.equals(user.getPassword())) {
+            return false;
+        }
+
+        String newPasswordMd5 = DigestUtils.md5DigestAsHex(newPassword.getBytes(StandardCharsets.UTF_8));
+        user.setPassword(newPasswordMd5);
+        user.setUpdateTime(LocalDateTime.now());
+        userMapper.updateById(user);
+        return true;
+    }
+
+    @Override
+    public boolean changeUsername(Long userId, String newUsername) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            return false;
+        }
+
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(User::getUsername, newUsername);
+        wrapper.ne(User::getId, userId);
+        User existing = userMapper.selectOne(wrapper);
+        if (existing != null) {
+            return false;
+        }
+
+        user.setUsername(newUsername);
+        user.setUpdateTime(LocalDateTime.now());
+        userMapper.updateById(user);
+        return true;
+    }
+
+    @Override
+    public boolean resetPassword(Long userId, String newPassword) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            return false;
+        }
+
+        String newPasswordMd5 = DigestUtils.md5DigestAsHex(newPassword.getBytes(StandardCharsets.UTF_8));
+        user.setPassword(newPasswordMd5);
+        user.setUpdateTime(LocalDateTime.now());
+        userMapper.updateById(user);
+        return true;
+    }
 }
